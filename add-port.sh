@@ -19,6 +19,7 @@ SERVERS_DIR="${CERTS_DIR}/servers/${EXPOSE_PORT}"
 CA_KEY="${CERTS_DIR}/ca.key"
 CA_CRT="${CERTS_DIR}/ca.crt"
 CONF_FILE="${INSTALL_DIR}/nginx/conf.d/site-${EXPOSE_PORT}.conf"
+mkdir -p "${INSTALL_DIR}/nginx/conf.d"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

@@ -129,6 +129,7 @@ fi
 # 阶段 3: 生成 nginx 站点配置
 # ================================================================
 CONF_FILE="${CONF_DIR}/site-${EXPOSE_PORT}.conf"
+mkdir -p "${CONF_DIR}"
 log "生成 nginx 配置: ${CONF_FILE}"
 
 sed \
