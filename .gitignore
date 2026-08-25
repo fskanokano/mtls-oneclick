@@ -1,0 +1,9 @@
+# 测试产生的证书（不要提交到仓库）
+certs/
+# 生成的 nginx 配置
+nginx/conf.d/site-*.conf
+# Docker compose（由 install.sh 自动生成）
+docker-compose.yml
+# 临时文件
+*.tmp
+*.log
