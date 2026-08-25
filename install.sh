@@ -145,6 +145,7 @@ cat > "${INSTALL_DIR}/docker-compose.yml" << YML
 services:
   nginx-mtls:
     build: .
+    image: nginx-mtls:latest
     container_name: nginx-mtls
     network_mode: host
     restart: unless-stopped
@@ -157,14 +158,16 @@ services:
 YML
 
 # ── 强制清理，防止复用旧的/被污染的镜像与构建缓存 ──
-# 历史问题: 容器曾因 Docker 层缓存(COPY entrypoint.sh 层 Using cache)
-# 跑着旧代码。这里先强制删镜像，再 --no-cache 全新构建。
+# 历史问题: 容器曾因复用 stale 旧镜像(COPY entrypoint.sh 层 / 留影 project image)
+# 而跑旧代码。这里强删容器+镜像，再用 compose --build --no-cache 彻底重建。
 log "强制清理旧镜像与容器…"
 docker rm -f nginx-mtls 2>/dev/null || true
 docker rmi -f nginx-mtls:latest 2>/dev/null || true
 
 log "构建 Docker 镜像…"
-docker build --no-cache -t nginx-mtls:latest "${INSTALL_DIR}"
+# 用 compose build --no-cache，镜像一定打到 image: nginx-mtls:latest，
+# 避免 docker build 独立打标签与 compose 留影镜像不一致。
+${DOCKER_COMPOSE} -f "${INSTALL_DIR}/docker-compose.yml" build --no-cache
 
 # 停止旧容器（如果存在）
 docker stop nginx-mtls 2>/dev/null || true
@@ -174,7 +177,7 @@ log "启动容器…"
 ${DOCKER_COMPOSE} -f "${INSTALL_DIR}/docker-compose.yml" up -d
 
 # ── 验证（轮询等待 nginx 就绪，最多 30 秒）──
-# 容器内 fail2ban 启动 + 等待后才拉起 nginx，一次性检查会误报失败
+# 非特权镜像 nginx 自身启动极快，轮询而非一次性检查，避免启动瞬间误报
 HEALTH_OK=0
 for i in $(seq 1 30); do
     if curl -sk "https://127.0.0.1:${EXPOSE_PORT}/nginx-health" 2>/dev/null | grep -q ok; then
