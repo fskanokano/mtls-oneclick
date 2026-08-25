@@ -10,9 +10,12 @@ banaction = iptables-allports
 banaction_allports = iptables-allports
 
 # ============================================================
-# 容器内没有 ssh 日志，禁用默认 sshd jail
+# 容器内没有 ssh 日志，禁用系统自带的 sshd 相关 jail
 # ============================================================
 [sshd]
+enabled = false
+
+[sshd-ddos]
 enabled = false
 
 # ============================================================
