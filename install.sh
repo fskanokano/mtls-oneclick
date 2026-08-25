@@ -174,10 +174,10 @@ touch "${BAN_DIR}/blacklist.conf"
 log "启动容器…"
 ${DOCKER_COMPOSE} -f "${INSTALL_DIR}/docker-compose.yml" up -d
 
-# ── 验证（轮询等待 nginx 就绪，最多 15 秒）──
+# ── 验证（轮询等待 nginx 就绪，最多 30 秒）──
 # 容器内 fail2ban 启动 + 等待后才拉起 nginx，一次性检查会误报失败
 HEALTH_OK=0
-for i in $(seq 1 15); do
+for i in $(seq 1 30); do
     if curl -sk "https://127.0.0.1:${EXPOSE_PORT}/nginx-health" 2>/dev/null | grep -q ok; then
         HEALTH_OK=1
         break
