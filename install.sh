@@ -135,8 +135,6 @@ sed \
 
 # 生成 docker-compose.yml
 cat > "${INSTALL_DIR}/docker-compose.yml" << YML
-version: "3.8"
-
 services:
   nginx-mtls:
     build: .
@@ -178,10 +176,18 @@ touch "${BAN_DIR}/blacklist.conf"
 log "启动容器…"
 ${DOCKER_COMPOSE} -f "${INSTALL_DIR}/docker-compose.yml" up -d
 
-sleep 3
+# ── 验证（轮询等待 nginx 就绪，最多 15 秒）──
+# 容器内 fail2ban 启动 + 等待后才拉起 nginx，一次性检查会误报失败
+HEALTH_OK=0
+for i in $(seq 1 15); do
+    if curl -sk "https://127.0.0.1:${EXPOSE_PORT}/nginx-health" 2>/dev/null | grep -q ok; then
+        HEALTH_OK=1
+        break
+    fi
+    sleep 1
+done
 
-# ── 验证 ──
-if curl -sk "https://127.0.0.1:${EXPOSE_PORT}/nginx-health" 2>/dev/null | grep -q ok; then
+if [ "${HEALTH_OK}" = "1" ]; then
     echo ""
     echo "============================================================"
     echo -e "  ${GREEN}✅ 部署成功！${NC}"
@@ -200,5 +206,7 @@ if curl -sk "https://127.0.0.1:${EXPOSE_PORT}/nginx-health" 2>/dev/null | grep -
     echo "    解封IP:         sudo fail2ban-client set nginx-mtls unbanip <IP>"
     echo ""
 else
-    warn "健康检查失败，检查日志: ${DOCKER_COMPOSE} -f ${INSTALL_DIR}/docker-compose.yml logs"
+    warn "健康检查失败（等待 ${EXPOSE_PORT} 端口 15 秒仍未就绪），最近日志:"
+    echo ""
+    ${DOCKER_COMPOSE} -f "${INSTALL_DIR}/docker-compose.yml" logs --tail=30
 fi
