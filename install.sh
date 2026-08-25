@@ -147,10 +147,14 @@ services:
   nginx-mtls:
     build: .
     image: nginx-mtls:latest
-    container_name: nginx-mtls
+        container_name: nginx-mtls
     network_mode: host
     restart: unless-stopped
     user: "${HOST_UID}:${HOST_GID}"
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
