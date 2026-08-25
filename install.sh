@@ -147,7 +147,7 @@ services:
   nginx-mtls:
     build: .
     image: nginx-mtls:latest
-        container_name: nginx-mtls
+    container_name: nginx-mtls
     network_mode: host
     restart: unless-stopped
     user: "${HOST_UID}:${HOST_GID}"
