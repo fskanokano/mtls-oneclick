@@ -1,0 +1,34 @@
+# ============================================================
+# fail2ban jails — nginx mTLS 专用
+# ============================================================
+
+[DEFAULT]
+bantime   = 3600
+findtime  = 300
+maxretry  = 10
+banaction = iptables-allports
+banaction_allports = iptables-allports
+
+# ============================================================
+# mTLS 证书验证失败日志（暴力猜测证书）
+# ============================================================
+[nginx-mtls]
+enabled  = true
+port     = all
+filter   = nginx-mtls
+logpath  = /var/log/nginx/error.log
+maxretry = 5
+findtime = 300
+bantime  = 7200
+
+# ============================================================
+# 限速触发日志（/install/ 页面刷爆）
+# ============================================================
+[nginx-ratelimit]
+enabled  = true
+port     = all
+filter   = nginx-ratelimit
+logpath  = /var/log/nginx/access.log
+maxretry = 10
+findtime = 120
+bantime  = 3600

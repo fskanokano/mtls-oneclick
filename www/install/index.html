@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>安全证书安装 — mTLS 双向认证</title>
+<style>
+  :root {
+    --bg: #0f172a; --card: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
+    --accent-glow: rgba(56,189,248,0.2); --success: #34d399;
+    --warn: #fbbf24; --danger: #ef4444;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .container { max-width: 680px; width: 100%; }
+
+  .header { text-align: center; margin-bottom: 32px; }
+  .shield {
+    width: 72px; height: 72px; margin: 0 auto 20px;
+    background: var(--accent-glow); border: 2px solid var(--accent);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+  }
+  .header h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 8px; }
+  .header p  { color: var(--muted); font-size: 0.95rem; line-height: 1.6; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 1rem; font-weight: 600; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .step-num {
+    width: 28px; height: 28px; background: var(--accent); color: #0f172a;
+    border-radius: 50%; display: inline-flex; align-items: center;
+    justify-content: center; font-size: 0.8rem; font-weight: 700;
+  }
+
+  .download-btn {
+    display: block; width: 100%; padding: 14px 20px;
+    background: var(--accent); color: #0f172a; border: none;
+    border-radius: 8px; font-size: 1rem; font-weight: 600;
+    cursor: pointer; text-align: center; text-decoration: none;
+    transition: box-shadow 0.2s;
+  }
+  .download-btn:hover { box-shadow: 0 0 24px var(--accent-glow); }
+
+  .p12-password {
+    margin-top: 12px; padding: 12px 16px;
+    background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.2);
+    border-radius: 8px; font-size: 0.85rem; color: var(--warn);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .p12-password code { font-weight: 700; color: var(--warn); user-select: all; cursor: pointer; }
+
+  .instructions { list-style: none; }
+  .instructions li {
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+    font-size: 0.9rem; line-height: 1.6; color: var(--muted);
+  }
+  .instructions li:last-child { border-bottom: none; }
+  .instructions li strong { color: var(--text); }
+
+  .retry-section {
+    text-align: center; margin-top: 24px; padding: 20px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  }
+  .retry-section p { color: var(--muted); font-size: 0.9rem; margin-bottom: 12px; }
+  .retry-btn {
+    display: inline-block; padding: 10px 28px; background: var(--success);
+    color: #0f172a; border: none; border-radius: 8px; font-size: 0.95rem;
+    font-weight: 600; cursor: pointer; text-decoration: none;
+  }
+  .retry-btn:hover { opacity: 0.9; }
+
+  .no-certs {
+    text-align: center; padding: 24px; background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2); border-radius: 12px; color: var(--danger);
+  }
+  .no-certs p { font-size: 0.9rem; line-height: 1.6; }
+
+  footer { text-align: center; margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header class="header">
+  <div class="shield" id="platform-icon">🔐</div>
+  <h1>需要安装安全证书</h1>
+  <p>本站使用 mTLS 双向认证保护通信安全。<br>请先联系管理员获取证书文件，然后按以下步骤导入浏览器。</p>
+</header>
+
+<!-- 步骤1: 下载 -->
+<div class="card">
+  <h2><span class="step-num">1</span> 获取证书文件</h2>
+  <div id="cert-list">
+    <div class="no-certs">
+      <p>⚠️ 暂无可下载的证书文件。<br>请联系管理员为您生成客户端证书。</p>
+    </div>
+  </div>
+</div>
+
+<!-- 步骤2: 导入教程 -->
+<div class="card">
+  <h2><span class="step-num">2</span> 导入证书到浏览器</h2>
+  <ul class="instructions" id="browser-instructions">
+    <li>正在检测您的浏览器…</li>
+  </ul>
+</div>
+
+<!-- 步骤3: 验证 -->
+<div class="retry-section">
+  <p>安装完成后，点击下方按钮验证：</p>
+  <a class="retry-btn" href="/">🔄 刷新验证</a>
+</div>
+
+<footer>如遇问题请联系管理员</footer>
+</div>
+
+<script>
+// ============================================================
+// 自动加载可用证书列表
+// ============================================================
+(function loadCerts() {
+  const list = document.getElementById('cert-list');
+  fetch('/install/certs/')
+    .then(r => r.text())
+    .then(html => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const links = [...doc.querySelectorAll('a')].filter(a =>
+        a.href && a.href.endsWith('.p12')
+      );
+      if (links.length === 0) {
+        list.innerHTML = '<div class="no-certs"><p>⚠️ 暂无可下载的证书文件。<br>请联系管理员为您生成客户端证书。</p></div>';
+        return;
+      }
+      const items = links.map(a => {
+        const name = a.textContent || a.href.split('/').pop();
+        return `<a class="download-btn" href="${a.getAttribute('href')}" download style="margin-bottom:8px">📥 ${name}</a>`;
+      }).join('');
+      list.innerHTML = items;
+      // 检查密码
+      const pwdHint = document.getElementById('pwd-hint');
+      if (pwdHint) pwdHint.style.display = 'none';
+    })
+    .catch(() => {
+      list.innerHTML = '<div class="no-certs"><p>⚠️ 暂无可下载的证书文件。<br>请联系管理员为您生成客户端证书。</p></div>';
+    });
+})();
+
+// ============================================================
+// 平台检测 + 分平台教程
+// ============================================================
+(function detectAndRender() {
+  const ua = navigator.userAgent;
+  const plat = navigator.platform || '';
+
+  const isWindows = /windows|win32|win64/i.test(ua) || /win/i.test(plat);
+  const isMac     = /macintosh|mac os x|macintel/i.test(ua) || /mac/i.test(plat);
+  const isLinux   = /linux/i.test(ua) || /linux/i.test(plat);
+  const isAndroid = /android/i.test(ua);
+  const isIOS     = /iphone|ipad|ipod/i.test(ua);
+
+  const isChrome  = /chrome|crios/i.test(ua) && !/edg/i.test(ua);
+  const isFirefox = /firefox|fxios/i.test(ua);
+  const isSafari  = /safari/i.test(ua) && !/chrome|crios/i.test(ua);
+  const isEdge    = /edg/i.test(ua);
+
+  let steps = [];
+
+  function add(s) { steps.push(s); }
+
+  if (isMac) {
+    if (isChrome || isEdge) {
+      add('双击下载的 <strong>.p12</strong> 文件 → 钥匙串访问 → 输入密码导入');
+      add('右键刚导入的证书 → <strong>"显示简介"</strong> → 展开"信任" → 设为"始终信任"');
+      add('刷新页面即可访问');
+    } else if (isFirefox) {
+      add('打开 Firefox → <strong>设置 → 隐私与安全 → 查看证书</strong>');
+      add('<strong>"您的证书"</strong> → 导入 → 选择 .p12 → 输入密码');
+      add('刷新页面');
+    } else if (isSafari) {
+      add('双击 .p12 → 钥匙串访问导入 → Safari 自动识别');
+      add('刷新页面，Safari 弹出证书选择框 → 选刚导入的证书');
+    } else { add('双击 .p12 导入钥匙串，刷新页面'); }
+  } else if (isWindows) {
+    if (isChrome || isEdge) {
+      add('双击 .p12 → 证书导入向导 → <strong>"当前用户"</strong> → 下一步');
+      add('保持默认路径 → 输入密码 → <strong>勾选"标记此密钥为可导出"</strong>');
+      add('<strong>"根据证书类型，自动选择证书存储"</strong> → 完成 → ⚠️关闭并重开浏览器 → 刷新');
+    } else if (isFirefox) {
+      add('设置 → 隐私与安全 → 查看证书 → <strong>"您的证书"</strong> → 导入 .p12');
+      add('刷新页面');
+    } else { add('双击 .p12 → 导入向导 → 当前用户 → 完成 → 重启浏览器'); }
+  } else if (isLinux) {
+    add('Chrome/Edge: <code>certutil -d sql:$HOME/.pki/nssdb -A -t "P,," -n "mTLS" -i cert.p12</code>');
+    add('Firefox: 设置 → 隐私与安全 → 查看证书 → 导入');
+    add('或访问 <strong>chrome://settings/certificates</strong> 手动导入 → 刷新');
+  } else if (isIOS) {
+    add('Safari 中点击 .p12 下载，提示"已下载描述文件"');
+    add('前往 <strong>设置 → 通用 → VPN 与设备管理</strong> → 安装');
+    add('返回 Safari 刷新');
+  } else if (isAndroid) {
+    add('下载 .p12 后：<strong>设置 → 安全 → 加密与凭据 → 从存储设备安装</strong>');
+    add('输入密码 → Chrome 自动识别 → 刷新');
+  } else {
+    add('打开浏览器 <strong>证书管理</strong> → 导入 .p12 → 刷新');
+  }
+
+  document.getElementById('browser-instructions').innerHTML = steps.map((s, i) =>
+    `<li>${i + 1}. ${s}</li>`
+  ).join('');
+
+  document.getElementById('platform-icon').textContent =
+    isMac ? '🍎' : isWindows ? '🪟' : isLinux ? '🐧' : isIOS ? '📱' : isAndroid ? '🤖' : '🔐';
+})();
+</script>
+</body>
+</html>

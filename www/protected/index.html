@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mTLS Protected Site</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --text:#e2e8f0; --muted:#94a3b8; --success:#34d399; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,sans-serif; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .card { background:var(--card); border-radius:16px; padding:48px; max-width:480px; text-align:center; }
+  .check { font-size:48px; margin-bottom:16px; }
+  h1 { font-size:1.4rem; margin-bottom:8px; }
+  p { color:var(--muted); font-size:0.9rem; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="check">✅</div>
+  <h1>mTLS Verified</h1>
+  <p>Your client certificate has been validated. You have access to this service.</p>
+</div>
+</body>
+</html>
