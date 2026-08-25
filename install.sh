@@ -15,13 +15,16 @@ set -euo pipefail
 EXPOSE_PORT="${1:?用法: bash install.sh <EXPOSE_PORT> <PROXY_PORT>}"
 PROXY_PORT="${2:?用法: bash install.sh <EXPOSE_PORT> <PROXY_PORT>}"
 
+# 宿主机用户身份（非特权镜像以此 uid 运行容器，才能读取 chmod 600 的私钥）
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+
 # ── 路径 ──
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
 CERTS_DIR="${INSTALL_DIR}/certs"
 SERVERS_DIR="${CERTS_DIR}/servers/${EXPOSE_PORT}"
 CONF_DIR="${INSTALL_DIR}/nginx/conf.d"
 CLIENTS_DIR="${CERTS_DIR}/clients"
-BAN_DIR="${INSTALL_DIR}/iptables/blacklist"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -49,6 +52,10 @@ else
 fi
 
 # ── 端口检查 ──
+# 非特权镜像以普通用户运行，无法绑定 <1024 的特权端口
+if [ "${EXPOSE_PORT}" -lt 1024 ]; then
+    err "非特权镜像要求 EXPOSE_PORT >= 1024（当前: ${EXPOSE_PORT}），请更换端口"
+fi
 if ss -tlnp 2>/dev/null | grep -q ":${EXPOSE_PORT} "; then
     warn "端口 ${EXPOSE_PORT} 已被占用，请先释放或选择其他端口"
     ss -tlnp | grep ":${EXPOSE_PORT} "
@@ -133,7 +140,7 @@ sed \
 # 阶段 4: 构建 Docker 镜像 + 启动
 # ================================================================
 
-# 生成 docker-compose.yml
+# 生成 docker-compose.yml（非特权镜像，无 privileged/cap_add）
 cat > "${INSTALL_DIR}/docker-compose.yml" << YML
 services:
   nginx-mtls:
@@ -141,23 +148,12 @@ services:
     container_name: nginx-mtls
     network_mode: host
     restart: unless-stopped
-    privileged: true
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
+    user: "${HOST_UID}:${HOST_GID}"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./certs:/etc/nginx/certs:ro
       - ./www/install:/var/www/install:ro
-      - ./iptables/jail.local:/etc/fail2ban/jail.local:ro
-      - ./iptables/nginx-mtls.conf:/etc/fail2ban/filter.d/nginx-mtls.conf:ro
-      - ./iptables/nginx-ratelimit.conf:/etc/fail2ban/filter.d/nginx-ratelimit.conf:ro
-      - ./iptables/blacklist:/var/log/nginx/ban:rw
-      - nginx_logs:/var/log/nginx
-
-volumes:
-  nginx_logs:
 YML
 
 # ── 强制清理，防止复用旧的/被污染的镜像与构建缓存 ──
@@ -173,10 +169,6 @@ docker build --no-cache -t nginx-mtls:latest "${INSTALL_DIR}"
 # 停止旧容器（如果存在）
 docker stop nginx-mtls 2>/dev/null || true
 docker rm nginx-mtls 2>/dev/null || true
-
-# 初始化黑名单文件
-mkdir -p "${BAN_DIR}"
-touch "${BAN_DIR}/blacklist.conf"
 
 log "启动容器…"
 ${DOCKER_COMPOSE} -f "${INSTALL_DIR}/docker-compose.yml" up -d
@@ -207,8 +199,6 @@ if [ "${HEALTH_OK}" = "1" ]; then
     echo "    吊销客户端证书: bash ${INSTALL_DIR}/scripts/revoke-client.sh <用户名>"
     echo "    增加新端口:     bash ${INSTALL_DIR}/add-port.sh <端口> <代理端口>"
     echo "    查看日志:       ${DOCKER_COMPOSE} -f ${INSTALL_DIR}/docker-compose.yml logs -f"
-    echo "    查看封禁IP:     sudo iptables -L f2b-nginx-mtls -n 2>/dev/null"
-    echo "    解封IP:         sudo fail2ban-client set nginx-mtls unbanip <IP>"
     echo ""
 else
     warn "健康检查失败（等待 ${EXPOSE_PORT} 端口 30 秒仍未就绪），最近日志:"

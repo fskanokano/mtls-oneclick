@@ -38,6 +38,10 @@ if ! docker ps --format '{{.Names}}' | grep -q 'nginx-mtls'; then
 fi
 
 # ── 端口冲突检查 ──
+# 非特权镜像无法绑定 <1024 的特权端口
+if [ "${EXPOSE_PORT}" -lt 1024 ]; then
+    err "非特权镜像要求 EXPOSE_PORT >= 1024（当前: ${EXPOSE_PORT}）"
+fi
 if ss -tlnp 2>/dev/null | grep -q ":${EXPOSE_PORT} "; then
     warn "端口 ${EXPOSE_PORT} 已被占用"
     ss -tlnp | grep ":${EXPOSE_PORT}"

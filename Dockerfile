@@ -1,36 +1,14 @@
-FROM nginx:1.27-alpine
+# ============================================================
+# mTLS 核心 nginx — 基于官方非特权镜像（无 root、无 fail2ban）
+# 仅保留核心 mTLS 反代能力，后续再扩展加固组件
+# ============================================================
+FROM nginxinc/nginx-unprivileged:1.31-trixie-perl
 
-# 安装必要工具
-RUN apk add --no-cache \
-    openssl \
-    fail2ban \
-    iptables \
-    bash \
-    grep \
-    sed \
-    curl
-
-# fail2ban 目录
-RUN mkdir -p /var/run/fail2ban
-
-# 复制 nginx 主配置
+# nginx 主配置（pid 与临时目录已指向 /tmp，适配非 root 运行）
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
 
-# 复制静态页面
-COPY www/install/index.html /var/www/install/index.html
-COPY www/protected/index.html /var/www/protected/index.html
+# 静态页面
+COPY www/install/index.html /usr/share/nginx/html/install/index.html
+COPY www/protected/index.html /usr/share/nginx/html/protected/index.html
 
-# 复制 fail2ban 配置
-COPY iptables/jail.local /etc/fail2ban/jail.local
-COPY iptables/nginx-mtls.conf /etc/fail2ban/filter.d/nginx-mtls.conf
-COPY iptables/nginx-ratelimit.conf /etc/fail2ban/filter.d/nginx-ratelimit.conf
-
-# 复制脚本
-COPY scripts/ /usr/local/bin/
-RUN chmod +x /usr/local/bin/*.sh
-
-# 入口脚本
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
+# 使用镜像自带的 docker-entrypoint.sh + nginx 前台默认 CMD
