@@ -90,7 +90,7 @@ log "生成 nginx 配置…"
 sed \
   -e "s/__EXPOSE_PORT__/${EXPOSE_PORT}/g" \
   -e "s/__PROXY_PORT__/${PROXY_PORT}/g" \
-  "${INSTALL_DIR}/nginx/conf.d/site.template.conf" > "${CONF_FILE}"
+  "${INSTALL_DIR}/nginx/site.template.conf" > "${CONF_FILE}"
 
 # ================================================================
 # 3. 重载 nginx（热加载，不影响其他端口）

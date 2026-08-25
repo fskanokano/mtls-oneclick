@@ -51,14 +51,13 @@ bash scripts/gen-client.sh alice
 /opt/mtls-oneclick/
 ├── install.sh                  # 一键部署
 ├── add-port.sh                 # 新增端口（热加载，不影响已有端口）
-├── Dockerfile                  # nginx:alpine + fail2ban + openssl
+├── Dockerfile                  # nginxinc/nginx-unprivileged（非 root，暂未加 fail2ban）
 ├── docker-compose.yml          # host 网络模式（自动生成）
-├── entrypoint.sh               # 容器启动：nginx + fail2ban
 ├── nginx/
 │   ├── nginx.conf              # 主配置（rate limiting zones）
-│   ├── conf.d/
-│   │   ├── site.template.conf  # 站点配置模板
-│   │   └── site-8443.conf      # 每个端口一个配置（自动生成）
+│   ├── site.template.conf      # 站点配置模板（不挂载入容器 conf.d，避免被解析）
+│   └── conf.d/
+│       └── site-8443.conf      # 每个端口一个配置（自动生成）
 ├── certs/
 │   ├── ca.key / ca.crt / ca.crl    # CA 证书体系
 │   ├── servers/<port>/             # 每个端口的服务器证书
@@ -77,15 +76,14 @@ bash scripts/gen-client.sh alice
     └── nginx-ratelimit.conf        # 限速触发过滤器
 ```
 
-## 安全防护层
+## 安全防护层（v0.x 核心版：暂无 fail2ban，后续再扩展）
 
 | 层级 | 机制 | 说明 |
 |------|------|------|
 | **L1 限速** | nginx `limit_req` | /install/ 单 IP 10次/分钟，burst 3 |
 | **L2 限速** | nginx `limit_conn` | 单 IP 最多 20 并发连接 |
-| **L3 日志监控** | fail2ban | 监控 TLS 校验失败 + 429 限速日志 |
-| **L4 自动拉黑** | fail2ban → iptables | 300秒内 5 次 TLS 失败 → ban 2小时 |
-| **L5 手动黑名单** | `/var/log/nginx/ban/blacklist.conf` | nginx map 直接返回 444 |
+| **L3 审计**  | nginx access/error log | TLS 校验失败/429/444 写入日志，供 fail2ban/Loki 采集 |
+| **L4 证书管控** | mTLS + CRL | 客户端证书校验失败 → 直接拒连；吊销证书即时生效 |
 
 ## 浏览器兼容
 

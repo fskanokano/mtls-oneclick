@@ -134,7 +134,7 @@ log "生成 nginx 配置: ${CONF_FILE}"
 sed \
   -e "s/__EXPOSE_PORT__/${EXPOSE_PORT}/g" \
   -e "s/__PROXY_PORT__/${PROXY_PORT}/g" \
-  "${INSTALL_DIR}/nginx/conf.d/site.template.conf" > "${CONF_FILE}"
+  "${INSTALL_DIR}/nginx/site.template.conf" > "${CONF_FILE}"
 
 # ================================================================
 # 阶段 4: 构建 Docker 镜像 + 启动
