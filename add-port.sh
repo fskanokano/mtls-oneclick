@@ -94,7 +94,19 @@ sed \
   "${INSTALL_DIR}/nginx/site.template.conf" > "${CONF_FILE}"
 
 # ================================================================
-# 3. 重载 nginx（热加载，不影响其他端口）
+# 3. 开放宿主机防火墙（使新增端口可被外部访问）
+# ================================================================
+if command -v ufw >/dev/null 2>&1 && [ "$(id -u)" = "0" ]; then
+    ufw status 2>/dev/null | grep -q "${EXPOSE_PORT}/tcp" || ufw allow "${EXPOSE_PORT}/tcp" >/dev/null 2>&1 || true
+fi
+if ! command -v ufw >/dev/null 2>&1 && command -v iptables >/dev/null 2>&1 && [ "$(id -u)" = "0" ]; then
+    iptables -C INPUT -p tcp --dport "${EXPOSE_PORT}" -j ACCEPT 2>/dev/null \
+        || iptables -I INPUT 1 -p tcp --dport "${EXPOSE_PORT}" -j ACCEPT 2>/dev/null || true
+fi
+warn "若部署于 OCI，请在控制台为 Security List 添加入向规则: TCP ${EXPOSE_PORT} 来自 0.0.0.0/0"
+
+# ================================================================
+# 4. 重载 nginx（热加载，不影响其他端口）
 # ================================================================
 log "重载 nginx…"
 docker exec nginx-mtls nginx -t

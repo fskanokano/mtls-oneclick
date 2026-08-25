@@ -37,6 +37,42 @@ warn() { echo -e "${YELLOW}[!]${NC} $*"; }
 err()  { echo -e "${RED}[-]${NC} $*"; exit 1; }
 info() { echo -e "${CYAN}[*]${NC} $*"; }
 
+# ── 开放宿主机防火墙（ufw / iptables），使暴露端口可被外部访问 ──
+# 云安全组 (OCI Security List) 需在控制台/oci-cli 单独放行，此处只处理本机防火墙。
+open_firewall_port() {
+    local port="$1"
+    # ufw
+    if command -v ufw >/dev/null 2>&1; then
+        if ufw status 2>/dev/null | grep -qi "Status: inactive"; then
+            info "ufw 未启用，跳过本机放行"
+        elif ufw status 2>/dev/null | grep -q "${port}/tcp"; then
+            info "ufw 已放行 ${port}/tcp"
+        else
+            if [ "$(id -u)" = "0" ]; then
+                if ufw allow "${port}/tcp" >/dev/null 2>&1; then
+                    info "ufw 放行 ${port}/tcp"
+                else
+                    warn "ufw 放行 ${port}/tcp 失败，请手动执行: sudo ufw allow ${port}/tcp"
+                fi
+            else
+                warn "宿主机 ufw 需手动放行: sudo ufw allow ${port}/tcp"
+            fi
+        fi
+    fi
+    # iptables 回填规则（仅当 ufw 不存在）
+    if ! command -v ufw >/dev/null 2>&1 && command -v iptables >/dev/null 2>&1 && [ "$(id -u)" = "0" ]; then
+        iptables -C INPUT -p tcp --dport "${port}" -j ACCEPT 2>/dev/null \
+            || iptables -I INPUT 1 -p tcp --dport "${port}" -j ACCEPT 2>/dev/null || true
+    fi
+    # OCI 云安全组提醒（无法自动放行，需凭证+OCID）
+    if command -v oci >/dev/null 2>&1; then
+        warn "部署于 OCI 时，还需在控制台为 Security List 添加入向规则: TCP ${port} 来自 0.0.0.0/0"
+        info "oci-cli 已安装，可参考: oci network security-list list --compartment-id < compartment_id >"
+    else
+        warn "部署于 OCI 时，务必在控制台为 Security List 添加入向规则: TCP ${port} 来自 0.0.0.0/0"
+    fi
+}
+
 # ── 依赖检查 ──
 for cmd in docker openssl; do
     command -v "$cmd" &>/dev/null || err "缺少依赖: $cmd (apt install docker.io openssl)"
@@ -177,6 +213,9 @@ ${DOCKER_COMPOSE} -f "${INSTALL_DIR}/docker-compose.yml" build --no-cache
 # 停止旧容器（如果存在）
 docker stop nginx-mtls 2>/dev/null || true
 docker rm nginx-mtls 2>/dev/null || true
+
+# ── 开放宿主机防火墙 + 提示 OCI 安全组 ──
+open_firewall_port "${EXPOSE_PORT}"
 
 log "启动容器…"
 ${DOCKER_COMPOSE} -f "${INSTALL_DIR}/docker-compose.yml" up -d
