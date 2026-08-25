@@ -160,8 +160,15 @@ volumes:
   nginx_logs:
 YML
 
+# ── 强制清理，防止复用旧的/被污染的镜像与构建缓存 ──
+# 历史问题: 容器曾因 Docker 层缓存(COPY entrypoint.sh 层 Using cache)
+# 跑着旧代码。这里先强制删镜像，再 --no-cache 全新构建。
+log "强制清理旧镜像与容器…"
+docker rm -f nginx-mtls 2>/dev/null || true
+docker rmi -f nginx-mtls:latest 2>/dev/null || true
+
 log "构建 Docker 镜像…"
-docker build -t nginx-mtls:latest "${INSTALL_DIR}"
+docker build --no-cache -t nginx-mtls:latest "${INSTALL_DIR}"
 
 # 停止旧容器（如果存在）
 docker stop nginx-mtls 2>/dev/null || true
@@ -204,7 +211,7 @@ if [ "${HEALTH_OK}" = "1" ]; then
     echo "    解封IP:         sudo fail2ban-client set nginx-mtls unbanip <IP>"
     echo ""
 else
-    warn "健康检查失败（等待 ${EXPOSE_PORT} 端口 15 秒仍未就绪），最近日志:"
+    warn "健康检查失败（等待 ${EXPOSE_PORT} 端口 30 秒仍未就绪），最近日志:"
     echo ""
     ${DOCKER_COMPOSE} -f "${INSTALL_DIR}/docker-compose.yml" logs --tail=30
 fi
