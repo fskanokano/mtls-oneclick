@@ -155,11 +155,9 @@ services:
       - ./iptables/nginx-ratelimit.conf:/etc/fail2ban/filter.d/nginx-ratelimit.conf:ro
       - ./iptables/blacklist:/var/log/nginx/ban:rw
       - nginx_logs:/var/log/nginx
-      - fail2ban_data:/var/lib/fail2ban
 
 volumes:
   nginx_logs:
-  fail2ban_data:
 YML
 
 log "构建 Docker 镜像…"
