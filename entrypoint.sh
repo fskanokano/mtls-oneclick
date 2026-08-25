@@ -10,8 +10,11 @@ mkdir -p /var/log/nginx
 mkdir -p /var/log/nginx/ban
 mkdir -p /var/lib/fail2ban
 
+# 预创建日志文件，避免 fail2ban 因日志文件不存在而启动失败
+touch /var/log/nginx/error.log /var/log/nginx/access.log /var/log/fail2ban.log
+
 # 启动 fail2ban（后台）
-fail2ban-server -b -f --logtarget /var/log/fail2ban.log
+fail2ban-server -b --logtarget /var/log/fail2ban.log
 
 # 等待 fail2ban 就绪
 sleep 2
